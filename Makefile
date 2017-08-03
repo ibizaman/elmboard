@@ -1,3 +1,6 @@
+BACKEND_ARGS=
+
+
 install-archlinux:  ## Install every dependency not installable through pip, on an archlinux system.
 	hash npm 2>/dev/null || sudo pacman -S npm
 	hash elm 2>/dev/null || sudo npm install -g elm elm-test elm-oracle elm-format
@@ -12,7 +15,7 @@ venv/bin/activate: requirements.txt setup.py
 
 
 backend-debug: venv  ## Start the server in debug mode.
-	venv/bin/python backend-py3/server.py
+	venv/bin/python backend-py3/server.py $(BACKEND_ARGS)
 
 
 frontend-make:  ## Compile the frontend code.
