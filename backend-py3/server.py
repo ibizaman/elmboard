@@ -1,5 +1,20 @@
+import logging
+
 from aiohttp import web, WSMsgType, WSCloseCode
 
+def setup_logging():
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
+
+    logger.addHandler(ch)
+    return logger
+logger = setup_logging()
 
 
 async def websocket_handler(request):
@@ -13,15 +28,14 @@ async def websocket_handler(request):
 
     async for msg in ws:
         if msg.type == WSMsgType.TEXT:
-            print(msg.data)
             if msg.data == 'close':
                 await ws.close()
             elif msg.data == 'dashboards':
                 await ws.send_json({'message': 'dashboards', 'dashboards': ['one', 'two']})
         elif msg.type == aiohttp.WSMsgType.ERROR:
-            print('ws connection closed with exception {}'.format(ws.exception()))
+            logger.error('ws connection closed with exception {}'.format(ws.exception()))
 
-    print('websocket connection closed')
+    logger.info('websocket connection closed')
 
     return ws
 
