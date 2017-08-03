@@ -1,5 +1,7 @@
 module Main exposing (main)
 
+import Dict
+import Json.Decode as Json
 import Html.Events as HE
 import Html.Attributes as HA
 import Html exposing (Html)
@@ -32,14 +34,15 @@ init : ( Model, Cmd Msg )
 init =
     ( Model Nothing Nothing Nothing
     , Cmd.batch
-        [ BackendTalk.sendRequestDashboardList Backend ]
+        [ BackendTalk.send "dashboards" ]
     )
 
 
 type Msg
     = GoToDashboardList
     | DashboardSelected String
-    | Backend BackendTalk.Msg
+    | UpdateDashboardList (List String)
+    | BackendError String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -51,23 +54,33 @@ update msg model =
         DashboardSelected selected ->
             ( { model | current_dashboard = Just selected }, Cmd.none )
 
-        Backend message ->
-            updateBackend message model
-
-
-updateBackend : BackendTalk.Msg -> Model -> ( Model, Cmd Msg )
-updateBackend msg model =
-    case msg of
-        BackendTalk.DashboardList new_dashboards ->
+        UpdateDashboardList new_dashboards ->
             ( { model | dashboards = Just new_dashboards, last_error = Nothing }, Cmd.none )
 
-        BackendTalk.Error error ->
+        BackendError error ->
             ( { model | last_error = Just error }, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    BackendTalk.subscription Backend
+    let
+        dashboardListDecoder =
+            (Json.field "dashboards" (Json.list Json.string))
+
+        messageDecoders =
+            [ ( "dashboards", BackendTalk.messageDecoder dashboardListDecoder UpdateDashboardList )
+            ]
+                |> Dict.fromList
+
+        toResult msg =
+            case msg of
+                Err string ->
+                    BackendError string
+
+                Ok msg ->
+                    msg
+    in
+        BackendTalk.subscription messageDecoders |> Sub.map toResult
 
 
 view : Model -> Html Msg

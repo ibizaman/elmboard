@@ -1,18 +1,13 @@
 module BackendTalk
     exposing
         ( send
-        , sendRequestDashboardList
         , subscription
-        , Msg(..)
+        , messageDecoder
         )
 
-import WebSocket
+import Dict exposing (Dict)
 import Json.Decode as Json
-
-
-type Msg
-    = DashboardList (List String)
-    | Error String
+import WebSocket
 
 
 serverAddress : String
@@ -20,52 +15,36 @@ serverAddress =
     "ws://localhost:8080/socket"
 
 
-send : String -> (Msg -> a) -> Cmd a
-send message transform =
-    WebSocket.send serverAddress message |> Cmd.map transform
+send : String -> Cmd a
+send message =
+    WebSocket.send serverAddress message
 
 
-sendRequestDashboardList : (Msg -> a) -> Cmd a
-sendRequestDashboardList transform =
-    send "dashboards" transform
-
-
-subscription : (Msg -> a) -> Sub a
+subscription : Dict String (Json.Decoder msg) -> Sub (Result String msg)
 subscription transform =
-    WebSocket.listen serverAddress (webSocketJsonDecode) |> Sub.map transform
+    WebSocket.listen serverAddress (webSocketJsonDecode transform)
 
 
-webSocketJsonDecode : String -> Msg
-webSocketJsonDecode string =
-    case Json.decodeString rootDecoder string of
-        Err error ->
-            Error error
-
-        Ok msg ->
-            msg
+webSocketJsonDecode : Dict String (Json.Decoder msg) -> String -> Result String msg
+webSocketJsonDecode transform string =
+    Json.decodeString (messageTypeDecoder transform) string
 
 
-rootDecoder : Json.Decoder Msg
-rootDecoder =
+messageTypeDecoder : Dict String (Json.Decoder msg) -> Json.Decoder msg
+messageTypeDecoder transform =
     let
         dispatch message =
-            case message of
-                "dashboards" ->
-                    jsonDashboardsDecoder
+            case Dict.get message transform of
+                Just decoder ->
+                    decoder
 
-                _ ->
-                    Json.fail ("Unknown message type " ++ message)
+                Nothing ->
+                    Json.fail ("No decoder found for message type " ++ message)
     in
         Json.field "message" Json.string
             |> Json.andThen dispatch
 
 
-messageDecoder : String -> Json.Decoder b -> (b -> msg) -> Json.Decoder msg
-messageDecoder messageType decoder msg =
-    Json.field messageType decoder
-        |> Json.andThen (\x -> Json.succeed (msg x))
-
-
-jsonDashboardsDecoder : Json.Decoder Msg
-jsonDashboardsDecoder =
-    messageDecoder "dashboards" (Json.list Json.string) DashboardList
+messageDecoder : Json.Decoder b -> (b -> msg) -> Json.Decoder msg
+messageDecoder decoder msg =
+    decoder |> Json.andThen (\x -> Json.succeed (msg x))
