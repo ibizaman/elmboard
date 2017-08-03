@@ -58,9 +58,6 @@ update msg model =
 updateBackend : BackendTalk.Msg -> Model -> ( Model, Cmd Msg )
 updateBackend msg model =
     case msg of
-        BackendTalk.RequestDashboardList ->
-            ( model, BackendTalk.sendRequestDashboardList Backend )
-
         BackendTalk.DashboardList new_dashboards ->
             ( { model | dashboards = Just new_dashboards, last_error = Nothing }, Cmd.none )
 

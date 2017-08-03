@@ -11,8 +11,7 @@ import Json.Decode as Json
 
 
 type Msg
-    = RequestDashboardList
-    | DashboardList (List String)
+    = DashboardList (List String)
     | Error String
 
 
