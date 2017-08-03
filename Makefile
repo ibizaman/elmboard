@@ -3,7 +3,11 @@ BACKEND_ARGS=
 
 install-archlinux:  ## Install every dependency not installable through pip, on an archlinux system.
 	hash npm 2>/dev/null || sudo pacman -S npm
-	hash elm 2>/dev/null || sudo npm install -g elm elm-test elm-oracle elm-format
+	hash elm 2>/dev/null || sudo npm install -g elm
+	hash elm-test 2>/dev/null || sudo npm install -g elm-test
+	hash elm-oracle 2>/dev/null || sudo npm install -g elm-oracle
+	hash elm-format 2>/dev/null || sudo npm install -g elm-format
+	hash elm-live 2>/dev/null || sudo npm install -g elm-live
 	hash virtualenv 2>/dev/null || sudo pip install -U virtualenv
 
 
@@ -24,8 +28,8 @@ frontend-make:  ## Compile the frontend code.
 	    && elm-make Main.elm \
 
 
-frontend-debug:  ## Start the elm-reactor server.
-	cd frontend; elm-reactor
+frontend-debug:  ## Start the elm-live server.
+	cd frontend; elm-live -- --output Main.js Main.elm
 
 
 help:  ## This help

@@ -1,5 +1,6 @@
 elm-stuff
 repl-temp-*
+frontend/Main.js
 
 venv
 *.egg-info
