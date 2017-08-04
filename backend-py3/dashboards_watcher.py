@@ -7,9 +7,6 @@ A dashboard file is a python file ending in `.py` and
 """
 import asyncio
 import logging
-import textwrap
-import traceback
-from functools import partial
 from importlib import import_module
 from pathlib import Path
 
@@ -23,6 +20,7 @@ class DashboardsWatcher(pyinotify.ProcessEvent):
     """
     logger = logging.getLogger(__name__)
 
+    # pylint: disable=no-member
     mask = pyinotify.IN_DELETE \
         | pyinotify.IN_CREATE \
         | pyinotify.IN_CLOSE_WRITE \
@@ -39,6 +37,8 @@ class DashboardsWatcher(pyinotify.ProcessEvent):
                          single parameter.
         @type callback: awaitable functor.
         """
+        super().__init__()
+
         self.paths = [Path(p) for p in paths]
         self.callback = callback
 
@@ -46,7 +46,7 @@ class DashboardsWatcher(pyinotify.ProcessEvent):
         # dashboards to avoid race conditions.
         wm = pyinotify.WatchManager()
         notifier = pyinotify.AsyncioNotifier(wm, loop, default_proc_fun=self, callback=self.schedule_callback)
-        self.logger.info('Watching paths {}'.format(', '.join('"' + str(d) + '"' for d in self.paths)))
+        self.logger.info('Watching paths %s', ', '.join('"' + str(d) + '"' for d in self.paths))
         for path in self.paths:
             wm.add_watch(str(path), self.mask, rec=True, auto_add=True)
 
@@ -57,7 +57,7 @@ class DashboardsWatcher(pyinotify.ProcessEvent):
 
         current_dashboards = self.get_dashboard_names()
         if current_dashboards:
-            self.logger.info('Initializing with dashboards {}'.format(', '.join('"' + d + '"' for d in current_dashboards)))
+            self.logger.info('Initializing with dashboards %s', ', '.join('"' + d + '"' for d in current_dashboards))
         else:
             self.logger.info('Initializing without any dashboard')
 
@@ -66,7 +66,8 @@ class DashboardsWatcher(pyinotify.ProcessEvent):
     def get_dashboard_names(self):
         return sorted(list(self.dashboards.keys()))
 
-    def is_dashboard(self, path):
+    @staticmethod
+    def is_dashboard(path):
         """
         Python files are considered to be dashboards. Python files
         starting by an underscore `_` are excluded to avoid considering
@@ -84,7 +85,9 @@ class DashboardsWatcher(pyinotify.ProcessEvent):
             module = import_module('dashboard.' + path.stem)
         except Exception as e:
             self.logger.error(
-                'Tried to import module "{}" under path "{}" but got the following exception:'.format(path.stem, path),
+                'Tried to import module "%s" under path "%s" but got the following exception:',
+                path.stem,
+                path,
                 exc_info=e)
             return False
         else:
@@ -98,21 +101,21 @@ class DashboardsWatcher(pyinotify.ProcessEvent):
     def process_IN_CREATE(self, event):
         new_dashboard = self.load_dashboard(Path(event.pathname))
         if new_dashboard:
-            self.logger.info('Adding new dashboard "{}"'.format(new_dashboard))
+            self.logger.info('Adding new dashboard "%s"', new_dashboard)
             return new_dashboard
         return None
 
     def process_IN_DELETE(self, event):
         if event.name in self.dashboards:
             del self.dashboards[event.name]
-            self.logger.info('Deleting dashboard "{}"'.format(event.name))
+            self.logger.info('Deleting dashboard "%s"', event.name)
             return event.name
         return None
 
     def process_IN_CLOSE_WRITE(self, event):
         reloaded_dashboard = self.load_dashboard(Path(event.pathname))
         if reloaded_dashboard:
-            self.logger.info('Reloading dashboard "{}"'.format(reloaded_dashboard))
+            self.logger.info('Reloading dashboard "%s"', reloaded_dashboard)
             return reloaded_dashboard
         return None
 
@@ -122,8 +125,8 @@ class DashboardsWatcher(pyinotify.ProcessEvent):
         # this method's implementation.
         class OldEvent:
             name = Path(event.src_pathname).stem
-        deleted = self.process_IN_DELETE(OldEvent)
-        added = self.process_IN_CREATE(event)
+        self.process_IN_DELETE(OldEvent)
+        self.process_IN_CREATE(event)
 
     def schedule_callback(self, notifier):
         self.logger.debug('Scheduling a call to the callback')

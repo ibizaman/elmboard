@@ -29,7 +29,6 @@ def setup_logging():
 
     logger.addHandler(ch)
     return logger
-logger = setup_logging()
 
 
 async def websocket_handler(request):
@@ -47,10 +46,10 @@ async def websocket_handler(request):
                 await ws.close()
             elif msg.data == 'dashboards':
                 await ws.send_json({'message': 'dashboards', 'dashboards': request.app['dashboards_watcher'].get_dashboard_names()})
-        elif msg.type == aiohttp.WSMsgType.ERROR:
-            logger.error('ws connection closed with exception {}'.format(ws.exception()))
+        elif msg.type == WSMsgType.ERROR:
+            request.app['logger'].error('ws connection closed with exception %s', exc_info=ws.exception())
 
-    logger.info('websocket connection closed')
+    request.app['logger'].info('websocket connection closed')
 
     return ws
 
@@ -69,7 +68,7 @@ async def start_background_tasks(app, args):
     app['dashboards_watcher'] = DashboardsWatcher(app.loop, args.dashboard_dir, notify_websockets)
 
 
-async def stop_background_tasks(app):
+async def stop_background_tasks(_app):
     pass
 
 
@@ -80,6 +79,8 @@ def run(args):
     app.on_startup.append(partial(start_background_tasks, args=args))
     app.on_cleanup.append(stop_background_tasks)
     app.on_shutdown.append(stop_websockets)
+
+    app['logger'] = setup_logging()
 
     web.run_app(app)
 

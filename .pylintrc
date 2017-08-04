@@ -1,0 +1,17 @@
+[MESSAGES CONTROL]
+
+disable=
+    bare-except,
+    broad-except,
+    invalid-name,
+    line-too-long,
+    missing-docstring,
+    protected-access,
+    redefined-builtin,
+    relative-import,
+    too-few-public-methods,
+    too-many-arguments,
+    too-many-lines,
+    too-many-locals,
+    too-many-statements,
+    unidiomatic-typecheck,
