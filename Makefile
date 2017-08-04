@@ -29,7 +29,12 @@ frontend-make:  ## Compile the frontend code.
 
 
 frontend-debug:  ## Start the elm-live server.
-	cd frontend; elm-live -- --output Main.js Main.elm
+	# elm-live expected index.html to be inside the frontend folder
+	cd frontend; elm-live Main.elm --output static/Main.js
+
+
+app-run: venv  ## Start the app in prod mode.
+	venv/bin/python backend-py3/server.py $(BACKEND_ARGS)
 
 
 help:  ## This help

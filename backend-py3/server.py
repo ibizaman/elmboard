@@ -31,6 +31,11 @@ def setup_logging():
     return logger
 
 
+async def root_handler(_request):
+    with open('frontend/index.html') as f:
+        return web.Response(text=f.read(), content_type='text/html')
+
+
 async def websocket_handler(request):
     ws = web.WebSocketResponse()
     await ws.prepare(request)
@@ -74,6 +79,8 @@ async def stop_background_tasks(_app):
 
 def run(args):
     app = web.Application()
+    app.router.add_get('/', root_handler)
+    app.router.add_static('/static', 'frontend/static')
     app.router.add_get('/socket', websocket_handler)
 
     app.on_startup.append(partial(start_background_tasks, args=args))

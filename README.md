@@ -15,18 +15,39 @@ The frontend is made in `ELM` and the backend in `Python3` using
 * Show a stub dashboard when one is selected.
 * Useful for debugging, the `make frontend-debug` reloads the page on
   code change.
+* The backend serves the frontend on the `/` route. The backend and
+  frontend thus run on the same port.
+* The frontend Elm code is embedded in a small html file. This allows
+  using css sheets.
 
 ## TODO
 
-* Make the backend return the frontend to GET HTTP requests on the root
-  route.
-* Make the backend and frontend run on same port.
 * Add Jenkins build backend.
 * Add composable graph elements.
 * Add builds graph element representing job builds.
 * Make it pretty with some styling.
 
 ## Quick Start
+
+Run:
+```
+make BACKEND_ARGS='--dashboard-dir=example_dashboards' app-run
+```
+
+Or equivalently:
+```
+source venv/bin/activate
+python backend-py3/server.py --dashboard-dir=example_dashboards
+```
+
+This will start the backend, listening on <http://localhost:8080>.
+
+Now create the `example_dashboards` directory and fill it with `.py`
+files, you'll see the list of dashboards update in realtime in the
+frontend app.
+
+
+## Debug frontend
 
 In one terminal, run:
 ```
@@ -38,8 +59,10 @@ In another, run:
 make BACKEND_ARGS='--dashboard-dir=example_dashboards' backend-debug
 ```
 
-Then go to `http://localhost:8000/Main.elm`.
+Then go to <http://localhost:8000/Main.elm>.
 
-Now create the `example_dashboards` directory and fill it with `.py`
-files, you'll see the list of dashboards update in realtime in the
-frontend app.
+Note that the webpage (frontend) code reloads automatically while the
+python (backend) code doesn't yet.
+
+Note also that, for now, the `backend-debug` is equivalent to `app-run`
+makefile target.
