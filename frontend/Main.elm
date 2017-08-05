@@ -7,6 +7,7 @@ import Html.Attributes as HA
 import Html exposing (Html)
 import List
 import BackendTalk
+import Elements
 
 
 main : Program Never Model Msg
@@ -99,12 +100,7 @@ view model =
                     |> viewErrorOnTop model.last_error
 
             ( Just dashboards, Nothing ) ->
-                Html.div []
-                    [ Html.p []
-                        [ Html.text "Pick a dashboard:"
-                        ]
-                    , Html.ul [] (List.map dashboardButton dashboards)
-                    ]
+                Elements.viewMenu DashboardSelected "Dashboards" (Sel.toList model.dashboards)
                     |> viewErrorOnTop model.last_error
 
             ( _, Just dashboard ) ->
