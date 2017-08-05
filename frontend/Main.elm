@@ -5,9 +5,9 @@ import Json.Decode as Json
 import Html.Events as HE
 import Html.Attributes as HA
 import Html exposing (Html)
-import List
 import BackendTalk
 import Elements
+import List.Selection as Sel exposing (Selection)
 
 
 main : Program Never Model Msg
@@ -25,15 +25,16 @@ type alias Dashboard =
 
 
 type alias Model =
-    { dashboards : Maybe (List Dashboard)
-    , current_dashboard : Maybe Dashboard
+    { dashboards : Selection Dashboard
     , last_error : Maybe String
     }
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( Model Nothing Nothing Nothing
+    ( { dashboards = Sel.fromList []
+      , last_error = Nothing
+      }
     , Cmd.batch
         [ BackendTalk.send "dashboards" ]
     )
@@ -50,16 +51,55 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         GoToDashboardList ->
-            ( { model | current_dashboard = Nothing }, Cmd.none )
+            ( { model
+                | dashboards = Sel.deselect model.dashboards
+                , last_error = Nothing
+              }
+            , Cmd.none
+            )
 
-        DashboardSelected selected ->
-            ( { model | current_dashboard = Just selected }, Cmd.none )
+        DashboardSelected wanted ->
+            ( { model
+                | dashboards = Sel.select wanted model.dashboards
+                , last_error = Nothing
+              }
+            , Cmd.none
+            )
 
-        UpdateDashboardList new_dashboards ->
-            ( { model | dashboards = Just new_dashboards, last_error = Nothing }, Cmd.none )
+        UpdateDashboardList newDashboards ->
+            case transferSelection model.dashboards (Sel.fromList newDashboards) of
+                ( newSelectedDashboards, True ) ->
+                    ( { model | dashboards = newSelectedDashboards }, Cmd.none )
+
+                ( newSelectedDashboards, False ) ->
+                    ( { model
+                        | dashboards = newSelectedDashboards
+                        , last_error = Just "The selected dashboard does not exist anymore"
+                      }
+                    , Cmd.none
+                    )
 
         BackendError error ->
             ( { model | last_error = Just error }, Cmd.none )
+
+
+transferSelection : Selection a -> Selection a -> ( Selection a, Bool )
+transferSelection old new =
+    case Sel.selected old of
+        Nothing ->
+            ( new |> Sel.deselect, True )
+
+        Just selected ->
+            let
+                newSelected =
+                    new |> Sel.select selected
+            in
+                case Sel.selected newSelected of
+                    Just _ ->
+                        ( newSelected, True )
+
+                    Nothing ->
+                        ( newSelected, False )
 
 
 subscriptions : Model -> Sub Msg
@@ -90,20 +130,12 @@ view model =
         dashboardButton dashboard =
             Html.button [ HE.onClick (DashboardSelected dashboard) ] [ Html.text dashboard ]
     in
-        case ( model.dashboards, model.current_dashboard ) of
-            ( Nothing, Nothing ) ->
-                Html.div []
-                    [ Html.p []
-                        [ Html.text "Loading dashboard list..."
-                        ]
-                    ]
-                    |> viewErrorOnTop model.last_error
-
-            ( Just dashboards, Nothing ) ->
+        case Sel.selected model.dashboards of
+            Nothing ->
                 Elements.viewMenu DashboardSelected "Dashboards" (Sel.toList model.dashboards)
                     |> viewErrorOnTop model.last_error
 
-            ( _, Just dashboard ) ->
+            Just dashboard ->
                 Html.div []
                     [ Html.button [ HE.onClick GoToDashboardList ] [ Html.text "back" ]
                     , Html.p []
