@@ -17,27 +17,22 @@ The frontend is made in `ELM` and the backend in `Python3` using
   code change.
 * The backend serves the frontend on the `/` route. The backend and
   frontend thus run on the same port.
-* The frontend Elm code is embedded in a small html file. This allows
-  using css sheets.
+* The frontend Elm code is embedded in a small HTML file. This allows
+  using CSS sheets.
+* CSS stylesheet is generated with elm-css. It also reloads on code change.
 
 ## TODO
 
 * Add Jenkins build backend.
 * Add composable graph elements.
 * Add builds graph element representing job builds.
-* Make it pretty with some styling.
+* Make it pretty with some styling [in progress].
 
 ## Quick Start
 
 Run:
 ```
 make BACKEND_ARGS='--dashboard-dir=example_dashboards' app-run
-```
-
-Or equivalently:
-```
-source venv/bin/activate
-python backend-py3/server.py --dashboard-dir=example_dashboards
 ```
 
 This will start the backend, listening on <http://localhost:8080>.
@@ -65,4 +60,4 @@ Note that the webpage (frontend) code reloads automatically while the
 python (backend) code doesn't yet.
 
 Note also that, for now, the `backend-debug` is equivalent to `app-run`
-makefile target.
+Makefile target.

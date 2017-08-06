@@ -8,6 +8,7 @@ install-archlinux:  ## Install every dependency not installable through pip, on 
 	hash elm-oracle 2>/dev/null || sudo npm install -g elm-oracle
 	hash elm-format 2>/dev/null || sudo npm install -g elm-format
 	hash elm-live 2>/dev/null || sudo npm install -g elm-live
+	hash elm-css 2>/dev/null || sudo npm install -g elm-css
 	hash virtualenv 2>/dev/null || sudo pip install -U virtualenv
 
 
@@ -22,7 +23,11 @@ backend-debug: venv  ## Start the server in debug mode.
 	venv/bin/python backend-py3/server.py $(BACKEND_ARGS)
 
 
-frontend-make:  ## Compile the frontend code.
+frontend-make-css: frontend/StylesheetGenerator.elm frontend/MyCss.elm
+	cd frontend && \
+	    elm-css --output static StylesheetGenerator.elm
+
+frontend-make: frontend-make-css  ## Compile the frontend code.
 	cd frontend \
 	    && elm-package install elm-lang/websocket \
 	    && elm-make Main.elm \
@@ -30,10 +35,14 @@ frontend-make:  ## Compile the frontend code.
 
 frontend-debug:  ## Start the elm-live server.
 	# elm-live expected index.html to be inside the frontend folder
-	cd frontend; elm-live Main.elm --output static/Main.js
+	cd frontend\
+	    && elm-live \
+	    	--before-build=./buildStylesheet.sh \
+		--output=static/Main.js \
+		Main.elm \
+		
 
-
-app-run: venv  ## Start the app in prod mode.
+app-run: venv frontend-make-css  ## Start the app in prod mode.
 	venv/bin/python backend-py3/server.py $(BACKEND_ARGS)
 
 
