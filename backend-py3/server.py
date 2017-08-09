@@ -38,13 +38,15 @@ async def root_handler(_request):
 
 
 async def websocket_handler(request):
+    logger = request.app['logger']
     ws = web.WebSocketResponse()
     await ws.prepare(request)
+    logger.debug('New websocket connection %s', id(ws))
 
     if 'websockets' not in request.app:
-        request.app['websockets'] = set([ws])
+        request.app['websockets'] = {ws: {'socket': ws, 'dashboard': None}}
     else:
-        request.app['websockets'].add(ws)
+        request.app['websockets'][ws] = {'socket': ws, 'dashboard': None}
 
     async for msg in ws:
         if msg.type == WSMsgType.TEXT:
@@ -53,10 +55,17 @@ async def websocket_handler(request):
                 await ws.close()
             elif data['type'] == 'dashboards':
                 await ws.send_json({'message': 'dashboards', 'dashboards': request.app['dashboards_watcher'].get_dashboard_names()})
+            elif data['type'] == 'select_dashboard':
+                request.app['websockets'][ws]['dashboard'] = data['dashboard']
+                logger.debug('%s: select dashboard "%s"', id(ws), request.app['websockets'][ws]['dashboard'])
+            elif data['type'] == 'unselect_dashboard':
+                old_dashboard = request.app['websockets'][ws]['dashboard']
+                request.app['websockets'][ws]['dashboard'] = None
+                logger.debug('%s: unselect dashboard, was "%s"', id(ws), old_dashboard)
         elif msg.type == WSMsgType.ERROR:
-            request.app['logger'].error('ws connection closed with exception %s', exc_info=ws.exception())
+            logger.error('ws connection closed with exception %s', exc_info=ws.exception())
 
-    request.app['logger'].info('websocket connection closed')
+    logger.info('websocket connection closed')
 
     return ws
 

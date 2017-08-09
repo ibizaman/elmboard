@@ -67,7 +67,7 @@ update msg model =
                 | dashboards = Sel.deselect model.dashboards
                 , last_error = Nothing
               }
-            , Cmd.none
+            , BackendTalk.send (jsonMessage UnselectDashboard)
             )
 
         DashboardSelected wanted ->
@@ -75,7 +75,7 @@ update msg model =
                 | dashboards = Sel.select wanted model.dashboards
                 , last_error = Nothing
               }
-            , Cmd.none
+            , BackendTalk.send (jsonMessage (SelectDashboard wanted))
             )
 
         UpdateDashboardList newDashboards ->
@@ -116,6 +116,8 @@ transferSelection old new =
 
 type JsonMessage
     = GetDashboards
+    | SelectDashboard String
+    | UnselectDashboard
 
 
 jsonMessage : JsonMessage -> String
@@ -125,6 +127,14 @@ jsonMessage msg =
             case msg of
                 GetDashboards ->
                     [ ( "type", JsonE.string "dashboards" ) ]
+
+                SelectDashboard dashboard ->
+                    [ ( "type", JsonE.string "select_dashboard" )
+                    , ( "dashboard", JsonE.string dashboard )
+                    ]
+
+                UnselectDashboard ->
+                    [ ( "type", JsonE.string "unselect_dashboard" ) ]
     in
         object |> JsonE.object |> JsonE.encode 0
 
