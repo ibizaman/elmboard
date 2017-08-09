@@ -43,10 +43,7 @@ async def websocket_handler(request):
     await ws.prepare(request)
     logger.debug('New websocket connection %s', id(ws))
 
-    if 'websockets' not in request.app:
-        request.app['websockets'] = {ws: {'socket': ws, 'dashboard': None}}
-    else:
-        request.app['websockets'][ws] = {'socket': ws, 'dashboard': None}
+    request.app['websockets'][ws] = {'socket': ws, 'dashboard': None}
 
     async for msg in ws:
         if msg.type == WSMsgType.TEXT:
@@ -90,6 +87,9 @@ async def stop_background_tasks(_app):
 
 def run(args):
     app = web.Application()
+    app['logger'] = setup_logging()
+    app['websockets'] = {}
+
     app.router.add_get('/', root_handler)
     app.router.add_static('/static', 'frontend/static')
     app.router.add_get('/socket', websocket_handler)
@@ -97,8 +97,6 @@ def run(args):
     app.on_startup.append(partial(start_background_tasks, args=args))
     app.on_cleanup.append(stop_background_tasks)
     app.on_shutdown.append(stop_websockets)
-
-    app['logger'] = setup_logging()
 
     web.run_app(app)
 
