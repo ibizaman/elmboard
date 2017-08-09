@@ -11,6 +11,7 @@ is made on the filesystem.
 
 import argparse
 from functools import partial
+import json
 import logging
 
 from aiohttp import web, WSMsgType, WSCloseCode
@@ -47,9 +48,10 @@ async def websocket_handler(request):
 
     async for msg in ws:
         if msg.type == WSMsgType.TEXT:
-            if msg.data == 'close':
+            data = json.loads(msg.data)
+            if data['type'] == 'close':
                 await ws.close()
-            elif msg.data == 'dashboards':
+            elif data['type'] == 'dashboards':
                 await ws.send_json({'message': 'dashboards', 'dashboards': request.app['dashboards_watcher'].get_dashboard_names()})
         elif msg.type == WSMsgType.ERROR:
             request.app['logger'].error('ws connection closed with exception %s', exc_info=ws.exception())

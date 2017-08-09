@@ -1,13 +1,17 @@
 module Main exposing (main)
 
 import Dict
-import Json.Decode as Json
-import Html.Events as HE
+import Json.Decode as JsonD
+import Json.Encode as JsonE
 import Html.Attributes as HA
+import Html.Events as HE
 import Html exposing (Html)
 import BackendTalk
 import Elements
 import List.Selection as Sel exposing (Selection)
+
+
+-- Main
 
 
 main : Program Never Model Msg
@@ -18,6 +22,10 @@ main =
         , view = view
         , update = update
         }
+
+
+
+-- Model
 
 
 type alias Dashboard =
@@ -36,8 +44,12 @@ init =
       , last_error = Nothing
       }
     , Cmd.batch
-        [ BackendTalk.send "dashboards" ]
+        [ BackendTalk.send (jsonMessage GetDashboards) ]
     )
+
+
+
+-- Update
 
 
 type Msg
@@ -102,11 +114,30 @@ transferSelection old new =
                         ( newSelected, False )
 
 
+type JsonMessage
+    = GetDashboards
+
+
+jsonMessage : JsonMessage -> String
+jsonMessage msg =
+    let
+        object =
+            case msg of
+                GetDashboards ->
+                    [ ( "type", JsonE.string "dashboards" ) ]
+    in
+        object |> JsonE.object |> JsonE.encode 0
+
+
+
+-- Subscriptions
+
+
 subscriptions : Model -> Sub Msg
 subscriptions model =
     let
         dashboardListDecoder =
-            (Json.field "dashboards" (Json.list Json.string))
+            (JsonD.field "dashboards" (JsonD.list JsonD.string))
 
         messageDecoders =
             [ ( "dashboards", BackendTalk.messageDecoder dashboardListDecoder UpdateDashboardList )
@@ -122,6 +153,10 @@ subscriptions model =
                     msg
     in
         BackendTalk.subscription messageDecoders |> Sub.map toResult
+
+
+
+-- View
 
 
 view : Model -> Html Msg
