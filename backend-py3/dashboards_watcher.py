@@ -138,4 +138,4 @@ class DashboardsWatcher(pyinotify.ProcessEvent):
         #     ...
         #     >>> a()
         #     <coroutine object a at 0x7f12144af150>
-        asyncio.ensure_future(self.callback(self.get_dashboard_names()), loop=notifier.loop)
+        asyncio.ensure_future(self.callback(self.dashboards), loop=notifier.loop)

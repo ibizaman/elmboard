@@ -18,6 +18,7 @@ from aiohttp import web, WSMsgType, WSCloseCode
 
 from dashboards_watcher import DashboardsWatcher
 
+
 def setup_logging():
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
@@ -77,7 +78,7 @@ async def stop_websockets(app):
 async def start_background_tasks(app, args):
     async def notify_websockets(dashboard_list):
         for ws in app.get('websockets', []):
-            await ws.send_json({'message': 'dashboards', 'dashboards': dashboard_list})
+            await ws.send_json({'message': 'dashboards', 'dashboards': sorted(list(dashboards.keys()))})
     app['dashboards_watcher'] = DashboardsWatcher(app.loop, args.dashboard_dir, notify_websockets)
 
 
