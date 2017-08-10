@@ -13,6 +13,7 @@ The frontend is made in `ELM` and the backend in `Python3` using
 * Update the frontend in realtime whenever an update is done to the
   dashboard list.
 * Show a stub dashboard when one is selected.
+* Import dashboards from user-supplied directories.
 * Useful for debugging, the `make frontend-debug` reloads the page on
   code change.
 * The backend serves the frontend on the `/` route. The backend and
@@ -27,6 +28,7 @@ The frontend is made in `ELM` and the backend in `Python3` using
 * Add composable graph elements.
 * Add builds graph element representing job builds.
 * Make it pretty with some styling [in progress].
+* Robust import system for dashboards to avoid name clashes.
 
 ## Quick Start
 

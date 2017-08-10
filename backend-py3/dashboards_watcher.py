@@ -7,7 +7,7 @@ A dashboard file is a python file ending in `.py` and
 """
 import asyncio
 import logging
-from importlib import import_module
+import importlib.util
 from pathlib import Path
 
 import pyinotify
@@ -82,7 +82,7 @@ class DashboardsWatcher(pyinotify.ProcessEvent):
             return False
 
         try:
-            module = import_module('dashboard.' + path.stem)
+            module = import_module(path)
         except Exception as e:
             self.logger.error(
                 'Tried to import module "%s" under path "%s" but got the following exception:',
@@ -139,3 +139,10 @@ class DashboardsWatcher(pyinotify.ProcessEvent):
         #     >>> a()
         #     <coroutine object a at 0x7f12144af150>
         asyncio.ensure_future(self.callback(self.dashboards), loop=notifier.loop)
+
+
+def import_module(path):
+    spec = importlib.util.spec_from_file_location('dashboard.' + path.stem, str(path))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
