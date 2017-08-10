@@ -44,8 +44,6 @@ async def websocket_handler(request):
     await ws.prepare(request)
     logger.debug('New websocket connection %s', id(ws))
 
-    request.app['websockets'][ws] = {'socket': ws, 'dashboard': None}
-
     async for msg in ws:
         if msg.type == WSMsgType.TEXT:
             data = json.loads(msg.data)
@@ -54,18 +52,82 @@ async def websocket_handler(request):
             elif data['type'] == 'dashboards':
                 await ws.send_json({'message': 'dashboards', 'dashboards': request.app['dashboards_watcher'].get_dashboard_names()})
             elif data['type'] == 'select_dashboard':
-                request.app['websockets'][ws]['dashboard'] = data['dashboard']
-                logger.debug('%s: select dashboard "%s"', id(ws), request.app['websockets'][ws]['dashboard'])
+                request.app['dashboards'].register_websocket(data['dashboard'], ws)
+                logger.debug('%s: select dashboard "%s"', id(ws), data['dashboard'])
             elif data['type'] == 'unselect_dashboard':
-                old_dashboard = request.app['websockets'][ws]['dashboard']
-                request.app['websockets'][ws]['dashboard'] = None
-                logger.debug('%s: unselect dashboard, was "%s"', id(ws), old_dashboard)
+                request.app['dashboards'].unregister_websocket(ws)
+                logger.debug('%s: unselect dashboard', id(ws))
         elif msg.type == WSMsgType.ERROR:
             logger.error('ws connection closed with exception %s', exc_info=ws.exception())
 
     logger.info('websocket connection closed')
 
     return ws
+
+
+def coroutine(func):
+    def start(*args, **kwargs):
+        cr = func(*args, **kwargs)
+        next(cr)
+        return cr
+    return start
+
+
+class Dashboards:
+    def __init__(self, loop):
+        self.loop = loop
+        self.dashboards = {}
+        self.active_dashboards = {}
+        self.websockets = {}
+        self.logger = logging.getLogger('dashboards')
+
+    def update(self, dashboards):
+        self.logger.debug('Updating list of dashboards to %s', dashboards)
+        self.dashboards = dashboards
+
+    def register_websocket(self, dashboard, ws):
+        if dashboard not in self.dashboards:
+            raise KeyError('Dashboard %s not found' % dashboard)
+
+        self.unregister_websocket(ws)
+
+        if dashboard not in self.active_dashboards:
+            self.logger.info('Calling setup for dashboard %s', dashboard)
+            target = partial(self.broadcast, dashboard=dashboard)
+            self.active_dashboards[dashboard] = self.dashboards[dashboard]['setup'](self.loop, target)
+
+        message = {'message': 'dashboard'}
+        message.update(**self.active_dashboards[dashboard])
+        for graph in message['graphs']:
+            del graph['task']
+        ws.send_json(message)
+
+        self.logger.info('Registering websocket %s on dashboard %s', id(ws), dashboard)
+        self.websockets[ws] = dashboard
+
+    def unregister_websocket(self, ws):
+        if ws not in self.websockets:
+            self.logger.warning('Trying to unregister websocket %s', id(ws))
+            return
+
+        dashboard = self.websockets[ws]
+        self.logger.info('Removing websocket %s from dashboard %s', id(ws), dashboard)
+        del self.websockets[ws]
+
+        if not any(d == dashboard for d in self.websockets.values()):
+            self.logger.info('Cancelling all graph tasks from dashboard %s', dashboard)
+            for graph in self.active_dashboards[dashboard]['graphs']:
+                graph['task'].cancel()
+            del self.active_dashboards[dashboard]
+
+    @coroutine
+    def broadcast(self, dashboard, graph):
+        while True:
+            message = yield
+            message.update(message='build', dashboard=dashboard, graph=graph)
+            for ws in self.websockets:
+                ws.send_json(message)
+            self.logger.debug('broadcast message for dashboard %s from graph %s: %s', dashboard, graph, message)
 
 
 async def stop_websockets(app):
@@ -76,10 +138,11 @@ async def stop_websockets(app):
 
 
 async def start_background_tasks(app, args):
-    async def notify_websockets(dashboard_list):
+    async def notify_websockets_dashboards(dashboards):
+        app['dashboards'].update(dashboards)
         for ws in app.get('websockets', []):
             await ws.send_json({'message': 'dashboards', 'dashboards': sorted(list(dashboards.keys()))})
-    app['dashboards_watcher'] = DashboardsWatcher(app.loop, args.dashboard_dir, notify_websockets)
+    app['dashboards_watcher'] = DashboardsWatcher(app.loop, args.dashboard_dir, notify_websockets_dashboards)
 
 
 async def stop_background_tasks(_app):
@@ -90,6 +153,7 @@ def run(args):
     app = web.Application()
     app['logger'] = setup_logging()
     app['websockets'] = {}
+    app['dashboards'] = Dashboards(app.loop)
 
     app.router.add_get('/', root_handler)
     app.router.add_static('/static', 'frontend/static')

@@ -19,6 +19,8 @@ setup(
         'aiohttp == 2.2.3',
         'cchardet == 2.1.1',
         'pyinotify == 0.9.6',
+        'python-jenkins == 0.4.15',
+        'pytz == 2017.2',
     ],
     extras_require={
         'dev': [

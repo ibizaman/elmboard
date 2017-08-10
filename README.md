@@ -21,6 +21,10 @@ The frontend is made in `ELM` and the backend in `Python3` using
 * The frontend Elm code is embedded in a small HTML file. This allows
   using CSS sheets.
 * CSS stylesheet is generated with elm-css. It also reloads on code change.
+* Generic Jenkins build plugin, used to create graphs in a dashboard.
+  Sends builds to a give coroutine.
+* Example dashboard connecting to http://localhost:8090 with
+  username=api and password=api.
 
 ## TODO
 
@@ -29,6 +33,7 @@ The frontend is made in `ELM` and the backend in `Python3` using
 * Add builds graph element representing job builds.
 * Make it pretty with some styling [in progress].
 * Robust import system for dashboards to avoid name clashes.
+* Per websocket jenkins build cache.
 
 ## Quick Start
 
