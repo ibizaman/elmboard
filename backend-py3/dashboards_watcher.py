@@ -91,9 +91,16 @@ class DashboardsWatcher(pyinotify.ProcessEvent):
                 exc_info=e)
             return False
         else:
+            if not hasattr(module, 'setup'):
+                self.logger.error(
+                    'Imported module "%s" under path "%s" does not have a setup function.',
+                    path.stem,
+                    path)
+                return False
+
             self.dashboards[path.stem] = {
                 'path': path,
-                'module': module,
+                'setup': module.setup,
             }
 
             return path.stem
