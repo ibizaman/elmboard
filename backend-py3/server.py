@@ -60,6 +60,8 @@ async def websocket_handler(request):
         elif msg.type == WSMsgType.ERROR:
             logger.error('ws connection closed with exception %s', exc_info=ws.exception())
 
+    request.app['dashboards'].unregister_websocket(ws)
+
     logger.info('websocket connection closed')
 
     return ws
