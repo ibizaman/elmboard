@@ -57,7 +57,6 @@ async def jenkinsLoop(j, target, poll_delay=10):
                 if (build['name'], build['build']) in builds_cache:
                     if builds_cache[cache_key]['status'] not in ['SUCCESSFUL', 'FAILED', 'ABORTED']:
                         info = _get_build_info(j, build, j.timezone)
-                        print(info)
                         if info in ['SUCCESSFUL', 'FAILED', 'ABORTED']:
                             builds_cache[cache_key] = info
                             target.send(info)
