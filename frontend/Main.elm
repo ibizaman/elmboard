@@ -8,7 +8,8 @@ import Html.Events as HE
 import Html exposing (Html)
 import BackendTalk
 import Elements
-import List.Selection as Sel exposing (Selection)
+import Dict exposing (Dict)
+import SelectionDict as Sel exposing (SelectionDict)
 
 
 -- Main
@@ -29,11 +30,22 @@ main =
 
 
 type alias Dashboard =
-    String
+    { title : String
+    , graphs : List Graph
+    }
+
+
+type alias Graph =
+    { id : String
+    , title : String
+    , type_ : String
+
+    --, job_prefix_url: String
+    }
 
 
 type alias Model =
-    { dashboards : Selection Dashboard
+    { dashboards : SelectionDict String Dashboard
     , last_error : Maybe String
     }
 
@@ -54,8 +66,8 @@ init =
 
 type Msg
     = GoToDashboardList
+    | UpdateDashboardList (Dict String Dashboard)
     | DashboardSelected String
-    | UpdateDashboardList (List String)
     | BackendError String
 
 
@@ -79,7 +91,7 @@ update msg model =
             )
 
         UpdateDashboardList newDashboards ->
-            case transferSelection model.dashboards (Sel.fromList newDashboards) of
+            case Sel.transferSelection model.dashboards (Sel.fromDict newDashboards) of
                 ( newSelectedDashboards, True ) ->
                     ( { model | dashboards = newSelectedDashboards }, Cmd.none )
 
@@ -93,25 +105,6 @@ update msg model =
 
         BackendError error ->
             ( { model | last_error = Just error }, Cmd.none )
-
-
-transferSelection : Selection a -> Selection a -> ( Selection a, Bool )
-transferSelection old new =
-    case Sel.selected old of
-        Nothing ->
-            ( new |> Sel.deselect, True )
-
-        Just selected ->
-            let
-                newSelected =
-                    new |> Sel.select selected
-            in
-                case Sel.selected newSelected of
-                    Just _ ->
-                        ( newSelected, True )
-
-                    Nothing ->
-                        ( newSelected, False )
 
 
 type JsonMessage
@@ -146,11 +139,28 @@ jsonMessage msg =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     let
-        dashboardListDecoder =
-            (JsonD.field "dashboards" (JsonD.list JsonD.string))
+        graphDecoder =
+            JsonD.map3 Graph
+                (JsonD.field "id" JsonD.string)
+                (JsonD.field "title" JsonD.string)
+                (JsonD.field "type" JsonD.string)
+
+        dashboardDecoder =
+            JsonD.map2
+                Dashboard
+                (JsonD.field "title" JsonD.string)
+                (JsonD.field "graphs"
+                    (JsonD.list graphDecoder)
+                )
+
+        dashboardsDecoder =
+            JsonD.map UpdateDashboardList
+                (JsonD.field "dashboards"
+                    (JsonD.dict dashboardDecoder)
+                )
 
         messageDecoders =
-            [ ( "dashboards", BackendTalk.messageDecoder dashboardListDecoder UpdateDashboardList )
+            [ ( "dashboards", dashboardsDecoder )
             ]
                 |> Dict.fromList
 
@@ -174,18 +184,23 @@ view model =
     let
         dashboardButton dashboard =
             Html.button [ HE.onClick (DashboardSelected dashboard) ] [ Html.text dashboard ]
+
+        viewGraph graph =
+            [ Html.h2 [] [ Html.text graph.title ] ]
     in
-        case Sel.selected model.dashboards of
+        case Sel.getSelected model.dashboards of
             Nothing ->
-                Elements.viewMenu DashboardSelected "Dashboards" (Sel.toList model.dashboards)
+                Elements.viewMenu DashboardSelected "Dashboards" (Sel.keys model.dashboards)
                     |> viewErrorOnTop model.last_error
 
             Just dashboard ->
                 Html.div []
                     [ Html.button [ HE.onClick GoToDashboardList ] [ Html.text "back" ]
                     , Html.p []
-                        [ Html.text ("Dashboard: " ++ dashboard)
-                        ]
+                        ([ Html.h1 [] [ Html.text ("Dashboard: " ++ dashboard.title) ]
+                         ]
+                            ++ List.concatMap viewGraph dashboard.graphs
+                        )
                     ]
                     |> viewErrorOnTop model.last_error
 

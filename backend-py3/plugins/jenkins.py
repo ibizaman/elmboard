@@ -12,15 +12,9 @@ import jenkins
 import pytz
 
 
-async def jenkinsLoop(target, url, username, password, timezone, poll_delay=10):
+def connect(url, username, password, timezone):
     """
-    Send updated jenkins build info to a given coroutine target.
-
-    Connects to a jenkins instance and send builds and builds updates to
-    a given coroutine.
-
-    @param target: coroutine receiving the build info and updates..
-    @type target: coroutine.
+    Connects to a jenkins instance.
 
     @param url: url of the jenkins server.
     @type url: string.
@@ -33,12 +27,25 @@ async def jenkinsLoop(target, url, username, password, timezone, poll_delay=10):
 
     @param timezone: timezone of the jenkins server.
     @type timezone: string.
+    """
+    j = jenkins.Jenkins(url, username=username, password=password)
+    j.timezone = pytz.timezone(timezone)
+    return j
+
+
+async def jenkinsLoop(j, target, poll_delay=10):
+    """
+    Send updated jenkins build info to a given coroutine target.
+
+    @param j: connected jenkins instance
+    @type j:
+
+    @param target: coroutine receiving the build info and updates..
+    @type target: coroutine.
 
     @param poll_delay: wait for given seconds between polls.
     @type poll_delay: int.
     """
-    j = jenkins.Jenkins(url, username=username, password=password)
-    timezone = pytz.timezone(timezone)
 
     builds_cache = {}
 
@@ -49,13 +56,13 @@ async def jenkinsLoop(target, url, username, password, timezone, poll_delay=10):
                 cache_key = (build['name'], build['build'])
                 if (build['name'], build['build']) in builds_cache:
                     if builds_cache[cache_key]['status'] not in ['SUCCESSFUL', 'FAILED', 'ABORTED']:
-                        info = _get_build_info(j, build, timezone)
+                        info = _get_build_info(j, build, j.timezone)
                         print(info)
                         if info in ['SUCCESSFUL', 'FAILED', 'ABORTED']:
                             builds_cache[cache_key] = info
                             target.send(info)
                 else:
-                    info = _get_build_info(j, build, timezone)
+                    info = _get_build_info(j, build, j.timezone)
                     builds_cache[cache_key] = info
                     target.send(info)
         await asyncio.sleep(poll_delay)

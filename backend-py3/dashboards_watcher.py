@@ -98,10 +98,7 @@ class DashboardsWatcher(pyinotify.ProcessEvent):
                     path)
                 return False
 
-            self.dashboards[path.stem] = {
-                'path': path,
-                'setup': module.setup,
-            }
+            self.dashboards[path.stem] = module.setup()
 
             return path.stem
 

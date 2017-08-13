@@ -50,7 +50,7 @@ async def websocket_handler(request):
             if data['type'] == 'close':
                 await ws.close()
             elif data['type'] == 'dashboards':
-                await ws.send_json({'message': 'dashboards', 'dashboards': request.app['dashboards_watcher'].get_dashboard_names()})
+                await ws.send_json({'message': 'dashboards', 'dashboards': clean_dashboards_json_for_frontend(request.app['dashboards_watcher'].dashboards)})
             elif data['type'] == 'select_dashboard':
                 request.app['dashboards'].register_websocket(data['dashboard'], ws)
                 logger.debug('%s: select dashboard "%s"', id(ws), data['dashboard'])
@@ -65,6 +65,10 @@ async def websocket_handler(request):
     return ws
 
 
+def clean_dashboards_json_for_frontend(dashboards):
+    return {k: v['info'] for k, v in dashboards.items()}
+
+
 def coroutine(func):
     def start(*args, **kwargs):
         cr = func(*args, **kwargs)
@@ -77,12 +81,12 @@ class Dashboards:
     def __init__(self, loop):
         self.loop = loop
         self.dashboards = {}
-        self.active_dashboards = {}
+        self.dashboards_tasks = {}
         self.websockets = {}
         self.logger = logging.getLogger('dashboards')
 
     def update(self, dashboards):
-        self.logger.debug('Updating list of dashboards to %s', dashboards)
+        self.logger.debug('Updating list of dashboards to %s', sorted(list(dashboards)))
         self.dashboards = dashboards
 
     def register_websocket(self, dashboard, ws):
@@ -91,16 +95,13 @@ class Dashboards:
 
         self.unregister_websocket(ws)
 
-        if dashboard not in self.active_dashboards:
+        if dashboard not in self.dashboards_tasks:
             self.logger.info('Calling setup for dashboard %s', dashboard)
             target = partial(self.broadcast, dashboard=dashboard)
-            self.active_dashboards[dashboard] = self.dashboards[dashboard]['setup'](self.loop, target)
-
-        message = {'message': 'dashboard'}
-        message.update(**self.active_dashboards[dashboard])
-        for graph in message['graphs']:
-            del graph['task']
-        ws.send_json(message)
+            self.dashboards_tasks = {dashboard : {
+                graph['id']: self.dashboards[dashboard]['run'](self.loop, target, graph['id'])
+                for graph in self.dashboards[dashboard]['info']['graphs']
+            }}
 
         self.logger.info('Registering websocket %s on dashboard %s', id(ws), dashboard)
         self.websockets[ws] = dashboard
@@ -114,11 +115,11 @@ class Dashboards:
         self.logger.info('Removing websocket %s from dashboard %s', id(ws), dashboard)
         del self.websockets[ws]
 
-        if not any(d == dashboard for d in self.websockets.values()):
+        if self.dashboards_tasks[dashboard]:
             self.logger.info('Cancelling all graph tasks from dashboard %s', dashboard)
-            for graph in self.active_dashboards[dashboard]['graphs']:
-                graph['task'].cancel()
-            del self.active_dashboards[dashboard]
+            for task in self.dashboards_tasks[dashboard].values():
+                task.cancel()
+            del self.dashboards_tasks[dashboard]
 
     @coroutine
     def broadcast(self, dashboard, graph):
@@ -141,7 +142,7 @@ async def start_background_tasks(app, args):
     async def notify_websockets_dashboards(dashboards):
         app['dashboards'].update(dashboards)
         for ws in app.get('websockets', []):
-            await ws.send_json({'message': 'dashboards', 'dashboards': sorted(list(dashboards.keys()))})
+            await ws.send_json({'message': 'dashboards', 'dashboards': clean_dashboards_json_for_frontend(dashboards)})
     app['dashboards_watcher'] = DashboardsWatcher(app.loop, args.dashboard_dir, notify_websockets_dashboards)
 
 
