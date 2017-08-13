@@ -97,40 +97,36 @@ class Dashboards:
 
         self.unregister_websocket(ws)
 
-        if dashboard not in self.dashboards_tasks:
-            self.logger.info('Calling setup for dashboard %s', dashboard)
-            target = partial(self.broadcast, dashboard=dashboard)
-            self.dashboards_tasks = {dashboard : {
-                graph['id']: self.dashboards[dashboard]['run'](self.loop, target, graph['id'])
-                for graph in self.dashboards[dashboard]['info']['graphs']
-            }}
-
         self.logger.info('Registering websocket %s on dashboard %s', id(ws), dashboard)
-        self.websockets[ws] = dashboard
+        self.websockets[ws] = {
+            'dashboard': dashboard,
+            'tasks': {
+                graph['id']: self.dashboards[dashboard]['run'](
+                    loop=self.loop,
+                    target=partial(self.send_to_websocket, ws=ws, dashboard=dashboard, graph_id=graph['id'])(),
+                    graph_id=graph['id'])
+                for graph in self.dashboards[dashboard]['info']['graphs']
+            }
+        }
 
     def unregister_websocket(self, ws):
         if ws not in self.websockets:
             self.logger.warning('Trying to unregister websocket %s', id(ws))
             return
 
-        dashboard = self.websockets[ws]
+        dashboard = self.websockets[ws]['dashboard']
         self.logger.info('Removing websocket %s from dashboard %s', id(ws), dashboard)
+        for task in self.websockets[ws]['tasks'].values():
+            task.cancel()
         del self.websockets[ws]
 
-        if self.dashboards_tasks[dashboard]:
-            self.logger.info('Cancelling all graph tasks from dashboard %s', dashboard)
-            for task in self.dashboards_tasks[dashboard].values():
-                task.cancel()
-            del self.dashboards_tasks[dashboard]
-
     @coroutine
-    def broadcast(self, dashboard, graph):
+    def send_to_websocket(self, ws, dashboard, graph_id):
         while True:
             message = yield
-            message.update(message='build', dashboard=dashboard, graph=graph)
-            for ws in self.websockets:
-                ws.send_json(message)
-            self.logger.debug('broadcast message for dashboard %s from graph %s: %s', dashboard, graph, message)
+            message.update(message='graph', dashboard=dashboard, graph_id=graph_id)
+            self.logger.debug('Sending message for dashboard %s from graph_id %s to websocket %s: %s', dashboard, graph_id, id(ws), message)
+            ws.send_json(message)
 
 
 async def stop_websockets(app):

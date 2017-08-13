@@ -1,5 +1,4 @@
 import asyncio
-from functools import partial
 
 from plugins import jenkins
 
@@ -13,7 +12,7 @@ def setup():
     j = jenkins.connect(url, username, password, timezone)
 
     def run(loop, target, graph_id):
-        return asyncio.gather(jenkins.jenkinsLoop(j, (partial(target, graph=graph_id)())), loop=loop)
+        return asyncio.gather(jenkins.jenkinsLoop(j, target), loop=loop)
 
     return {
         'run': run,

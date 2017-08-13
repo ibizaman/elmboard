@@ -33,7 +33,6 @@ The frontend is made in `ELM` and the backend in `Python3` using
 * Add builds graph element representing job builds.
 * Make it pretty with some styling [in progress].
 * Robust import system for dashboards to avoid name clashes.
-* Per websocket jenkins build cache.
 * Use aiohttp to retrieve jenkins build info.
 
 ## Quick Start
