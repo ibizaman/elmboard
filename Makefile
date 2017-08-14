@@ -27,7 +27,13 @@ frontend-make-css: frontend/StylesheetGenerator.elm frontend/MyCss.elm
 	cd frontend && \
 	    elm-css --output static StylesheetGenerator.elm
 
-frontend-make: frontend-make-css  ## Compile the frontend code.
+
+frontend-test:
+	cd frontend && \
+	    elm-test
+
+
+frontend-make: frontend-test frontend-make-css  ## Compile the frontend code.
 	cd frontend \
 	    && elm-package install elm-lang/websocket \
 	    && elm-make Main.elm \
@@ -37,7 +43,7 @@ frontend-debug:  ## Start the elm-live server.
 	# elm-live expected index.html to be inside the frontend folder
 	cd frontend\
 	    && elm-live \
-	    	--before-build=./buildStylesheet.sh \
+	    	--before-build=./beforeElmLive.sh \
 		--output=static/Main.js \
 		Main.elm \
 		
