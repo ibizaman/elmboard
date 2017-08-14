@@ -19,7 +19,6 @@ def setup():
         'info': {
             'title': 'Sample Jenkins Example',
             'graphs': [{
-                'id': '1',
                 'title': 'Jenkins Builds ' + url,
                 'type': 'builds',
                 'job_prefix_url': 'http://localhost:8090/job/',

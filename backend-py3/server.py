@@ -101,11 +101,11 @@ class Dashboards:
         self.websockets[ws] = {
             'dashboard': dashboard,
             'tasks': {
-                graph['id']: self.dashboards[dashboard]['run'](
+                i: self.dashboards[dashboard]['run'](
                     loop=self.loop,
-                    target=partial(self.send_to_websocket, ws=ws, dashboard=dashboard, graph_id=graph['id'])(),
-                    graph_id=graph['id'])
-                for graph in self.dashboards[dashboard]['info']['graphs']
+                    target=partial(self.send_to_websocket, ws=ws, dashboard=dashboard, graph_id=i)(),
+                    graph_id=i)
+                for i, graph in enumerate(self.dashboards[dashboard]['info']['graphs'])
             }
         }
 
