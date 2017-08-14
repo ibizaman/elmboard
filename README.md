@@ -22,15 +22,14 @@ The frontend is made in `ELM` and the backend in `Python3` using
   using CSS sheets.
 * CSS stylesheet is generated with elm-css. It also reloads on code change.
 * Generic Jenkins build plugin, used to create graphs in a dashboard.
-  Sends builds to a give coroutine.
-* Example dashboard connecting to http://localhost:8090 with
-  username=api and password=api.
+  Sends builds to a given coroutine.
+* Generic Builds frontend graph, shows builds in a list.
+* Example dashboard connecting to a jenkins instance on
+  http://localhost:8090 with username=api and password=api.
 
 ## TODO
 
-* Add Jenkins build backend.
-* Add composable graph elements.
-* Add builds graph element representing job builds.
+* Make builds graph show a svg graph and not a list of builds.
 * Make it pretty with some styling [in progress].
 * Robust import system for dashboards to avoid name clashes.
 * Use aiohttp to retrieve jenkins build info.
