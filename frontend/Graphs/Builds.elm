@@ -32,10 +32,11 @@ type Model
         }
 
 
-init : String -> DateTime -> Model
-init title currentDate =
+init : String -> String -> DateTime -> Model
+init id title currentDate =
     Model
-        { title = title
+        { id = id
+        , title = title
         , builds = SelectionDict.empty
         , datetime = currentDate
         , duration = 3600

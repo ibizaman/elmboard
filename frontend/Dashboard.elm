@@ -38,17 +38,18 @@ type GraphTypes
 init : String -> DateTime -> List ( String, GraphTypes ) -> Model
 init title currentDate list =
     let
-        toGraph ( title, elem ) =
-            case elem of
-                GraphTypeBuilds ->
-                    BuildsGraph (Graphs.Builds.init title currentDate)
-
-        listIndexTuple fun =
-            List.indexedMap (\index v -> ( index, fun v ))
+        toGraph graphId ( title, elem ) =
+            let
+                id =
+                    "plot-" ++ (toString graphId)
+            in
+                case elem of
+                    GraphTypeBuilds ->
+                        BuildsGraph (Graphs.Builds.init id title currentDate)
     in
         Model
             { title = title
-            , graphs = SelectionDict.fromList (listIndexTuple toGraph list)
+            , graphs = SelectionDict.fromList (List.indexedMap (\index v -> ( index, toGraph index v )) list)
             }
 
 
