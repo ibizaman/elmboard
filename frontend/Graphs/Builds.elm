@@ -13,8 +13,12 @@ import Time.DateTime as DateTime exposing (DateTime)
 import Dict exposing (Dict)
 import Json.Decode as JsonD
 import SelectionDict exposing (SelectionDict)
-import Html.Attributes as HA
 import Html exposing (Html)
+import Svg exposing (Svg)
+import Svg.Attributes
+import Set
+import Css.Colors
+import NotEmptyList exposing (NotEmptyList)
 
 
 -- Model
@@ -22,14 +26,27 @@ import Html exposing (Html)
 
 type Model
     = Model
-        { title : String
+        { id : String
+        , title : String
         , builds : SelectionDict ( String, Int ) Build
         , datetime : DateTime
         , duration : Int
         , viewportDatetime : DateTime
-        , viewportDuration : Int
+        , viewportDuration : Float
         , viewportFollow : Bool
+        , margin : Margin
+        , jobLaneHeight : Float
+        , jobLanePadding : Float
+        , jobColors : NotEmptyList String
         }
+
+
+type alias Margin =
+    { top : Float
+    , bottom : Float
+    , left : Float
+    , right : Float
+    }
 
 
 init : String -> String -> DateTime -> Model
@@ -43,6 +60,17 @@ init id title currentDate =
         , viewportDatetime = currentDate
         , viewportDuration = 3600
         , viewportFollow = True
+        , margin = Margin 10 10 10 10
+        , jobLaneHeight = 20
+        , jobLanePadding = 2
+        , jobColors =
+            NotEmptyList.notEmptyList Css.Colors.blue
+                [ Css.Colors.olive
+                , Css.Colors.orange
+                , Css.Colors.maroon
+                , Css.Colors.teal
+                ]
+                |> NotEmptyList.map (\color -> "rgb(" ++ (toString color.red) ++ "," ++ (toString color.green) ++ "," ++ (toString color.blue) ++ ")")
         }
 
 
@@ -111,19 +139,6 @@ timestampToDate =
             )
 
 
-
---{"name": "pipeline1",
---"url": "http://localhost:8090/job/pipeline1/",
---"build": 1791,
---"status": "SUCCESSFUL",
---"start": 1502640778888.0,
---"end": 1502640779448.0,
---"message": "graph",
---"dashboard": "jenkins",
---"graph_id": "1"}
--- Update
-
-
 type Msg
     = UpdateBuilds (Dict ( String, Int ) Build)
     | SelectBuild String Int
@@ -150,12 +165,10 @@ tick : DateTime -> Model -> Model
 tick currentDatetime (Model model) =
     let
         newViewportDatetime =
-            case model.viewportFollow of
-                True ->
-                    currentDatetime |> DateTime.addSeconds -model.duration
-
-                False ->
-                    model.viewportDatetime
+            if model.viewportFollow then
+                currentDatetime |> DateTime.addSeconds -model.duration
+            else
+                model.viewportDatetime
     in
         Model
             { model
@@ -171,71 +184,153 @@ tick currentDatetime (Model model) =
 view : Model -> Html Msg
 view (Model model) =
     let
-        viewBuild ( job, buildNumber ) build isSelected acc =
+        jobNames =
+            model.builds
+                |> SelectionDict.foldr (\( name, buildNumber ) build isSelected acc -> Set.insert name acc) Set.empty
+                |> Set.toList
+                |> List.indexedMap (\i v -> ( v, i ))
+                |> Dict.fromList
+
+        jobIndex name =
+            Dict.get name jobNames |> Maybe.withDefault 0
+
+        jobAxis name =
+            jobIndex name |> toFloat
+
+        jobColor name =
+            NotEmptyList.moduloIndex (jobIndex name) model.jobColors
+
+        maxTimestamp =
+            model.builds
+                |> SelectionDict.values
+                |> List.map (getEndDate model.datetime)
+                |> List.map (\datetime -> (DateTime.toTimestamp datetime) / 1000)
+                |> List.maximum
+                |> Maybe.withDefault 0
+
+        minTimestamp =
+            model.builds
+                |> SelectionDict.values
+                |> List.map (getStartDate model.datetime)
+                |> List.map (\datetime -> (DateTime.toTimestamp datetime) / 1000)
+                |> List.minimum
+                |> Maybe.withDefault 0
+
+        xAxis datetime =
+            (DateTime.toTimestamp datetime) / 1000 - minTimestamp
+
+        viewBuild ( job, buildNumber ) build isSelected =
             let
-                liFull status start end url =
-                    Html.li []
-                        [ Html.text
-                            (status
-                                ++ " "
-                                ++ job
-                                ++ "#"
-                                ++ (toString buildNumber)
-                                ++ " ["
-                                ++ (toString start)
-                                ++ ", "
-                                ++ (toString end)
-                                ++ "]: "
-                                ++ url
-                            )
-                        ]
+                jobLane =
+                    (jobAxis job) * (model.jobLaneHeight + model.jobLanePadding)
 
-                newElem =
-                    case build of
-                        SuccessfulBuild start end url ->
-                            liFull "S" start end url
-
-                        FailedBuild start end url ->
-                            liFull "F" start end url
-
-                        AbortedBuild start end url ->
-                            liFull "A" start end url
-
-                        RunningBuild start url ->
-                            Html.li []
-                                [ Html.text
-                                    ("R "
-                                        ++ job
-                                        ++ "#"
-                                        ++ (toString buildNumber)
-                                        ++ " ["
-                                        ++ (toString start)
-                                        ++ ", X]: "
-                                        ++ url
-                                    )
-                                ]
-
-                        ScheduledBuild ->
-                            Html.li []
-                                [ Html.text
-                                    (". "
-                                        ++ job
-                                        ++ "#"
-                                        ++ (toString buildNumber)
-                                    )
-                                ]
+                buildRect status start end url =
+                    rect ( xAxis start, xAxis end ) ( jobLane, jobLane + model.jobLaneHeight ) (toString buildNumber) (jobColor job)
             in
-                newElem :: acc
+                case build of
+                    SuccessfulBuild start end url ->
+                        buildRect "S" start end url
 
-        viewBuildList builds =
-            Html.ul [ HA.class "Builds" ]
-                (SelectionDict.foldr viewBuild [] builds)
+                    FailedBuild start end url ->
+                        buildRect "F" start end url
+
+                    AbortedBuild start end url ->
+                        buildRect "A" start end url
+
+                    RunningBuild start url ->
+                        buildRect "R" start model.datetime url
+
+                    ScheduledBuild ->
+                        buildRect "S" model.datetime model.datetime ""
+
+        getStartDate default build =
+            case build of
+                SuccessfulBuild start end url ->
+                    start
+
+                FailedBuild start end url ->
+                    start
+
+                AbortedBuild start end url ->
+                    start
+
+                RunningBuild start url ->
+                    start
+
+                ScheduledBuild ->
+                    default
+
+        getEndDate default build =
+            case build of
+                SuccessfulBuild start end url ->
+                    end
+
+                FailedBuild start end url ->
+                    end
+
+                AbortedBuild start end url ->
+                    end
+
+                RunningBuild start url ->
+                    default
+
+                ScheduledBuild ->
+                    default
     in
-        Html.div [ HA.classList [ ( "graph", True ), ( "builds", True ) ] ]
-            ([ Html.h2 [] [ Html.text model.title ]
-             , Html.p []
-                [ "span: [" ++ (model.datetime |> DateTime.addSeconds (-model.duration) |> DateTime.toISO8601) ++ ", " ++ (model.datetime |> DateTime.toISO8601) ++ "]" |> Html.text
+        Svg.svg
+            [ Svg.Attributes.id model.id
+            , Svg.Attributes.width "800"
+            , Svg.Attributes.height "500"
+            , Svg.Attributes.preserveAspectRatio "none"
+            , viewBox ( xAxis model.viewportDatetime, xAxis model.viewportDatetime + model.viewportDuration ) ( 0, 200 )
+            ]
+            (SelectionDict.map viewBuild model.builds |> SelectionDict.values)
+
+
+viewBox : ( Float, Float ) -> ( Float, Float ) -> Svg.Attribute msg
+viewBox ( minX, maxX ) ( minY, maxY ) =
+    Svg.Attributes.viewBox
+        ((toString minX)
+            ++ " "
+            ++ (toString minY)
+            ++ " "
+            ++ (toString (maxX - minX))
+            ++ " "
+            ++ (toString (maxY - minY))
+        )
+
+
+rect : ( Float, Float ) -> ( Float, Float ) -> String -> String -> Svg msg
+rect ( minX, maxX ) ( minY, maxY ) text color =
+    let
+        width =
+            max (maxX - minX) 10
+
+        height =
+            max (maxY - minY) 10
+    in
+        Svg.g
+            [ Svg.Attributes.transform ("translate (" ++ (toString minX) ++ ", " ++ (toString minY) ++ ")")
+            ]
+            [ Svg.rect
+                [ Svg.Attributes.width (toString width)
+                , Svg.Attributes.height (toString height)
+                , Svg.Attributes.rx "0"
+                , Svg.Attributes.ry "0"
+                , Svg.Attributes.fill color
                 ]
-             , viewBuildList model.builds
-             ]
-            )
+                []
+            , Svg.svg
+                [ Svg.Attributes.width (toString width)
+                , Svg.Attributes.height (toString height)
+                ]
+                [ Svg.text_
+                    [ Svg.Attributes.x "50%"
+                    , Svg.Attributes.y "50%"
+                    , Svg.Attributes.textAnchor "middle"
+                    , Svg.Attributes.alignmentBaseline "middle"
+                    ]
+                    [ Svg.text text
+                    ]
+                ]
+            ]
