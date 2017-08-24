@@ -1,3 +1,13 @@
+.PHONY:\
+    app-run\
+    backend-debug\
+    frontend-debug\
+    frontend-make\
+    frontend-make-css\
+    frontend-test\
+    help\
+    install-archlinux\
+
 BACKEND_ARGS=
 
 
