@@ -7,7 +7,7 @@ import Html.Attributes as HA
 import Html.Events as HE
 import Html exposing (Html)
 import BackendTalk
-import Elements
+import MyCss
 import Dict exposing (Dict)
 import SelectionDict as Sel exposing (SelectionDict)
 import Dashboard
@@ -243,7 +243,7 @@ view model =
     in
         case Sel.getSelected model.dashboards of
             Nothing ->
-                Elements.viewMenu DashboardSelected "Dashboards" (Sel.keys model.dashboards)
+                viewMenu DashboardSelected "Dashboards" (Sel.keys model.dashboards)
                     |> viewErrorOnTop model.last_error
 
             Just ( dashboardName, dashboard ) ->
@@ -265,6 +265,22 @@ viewErrorOnTop string html =
                 [ Html.text ("Error: " ++ error)
                 , html
                 ]
+
+
+viewMenu : (String -> msg) -> String -> List String -> Html msg
+viewMenu msg title elements =
+    let
+        link name =
+            Html.li []
+                [ Html.button [ HE.onClick (msg name) ]
+                    [ Html.text (String.toUpper name)
+                    ]
+                ]
+    in
+        Html.nav [ MyCss.class [ MyCss.Menu ] ]
+            [ Html.h1 [] [ Html.text title ]
+            , Html.ul [] (List.map link elements)
+            ]
 
 
 
